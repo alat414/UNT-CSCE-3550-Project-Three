@@ -17,7 +17,7 @@ const db = new sqlite3.Database(dbPath);
 // Create table immediately
 db.serialize(() => {
     //Remove any existing tables.
-    db.run(`DROP TABLE IF EXISTS keys`, (err) => {
+    db.run(`DROP TABLE IF EXISTS users`, (err) => {
         if (err) 
         {
             console.error('Error dropping table:', err.message);
@@ -26,12 +26,13 @@ db.serialize(() => {
         {
             console.log('Previous table removed');
         }
-        db.run(`CREATE TABLE IF NOT EXISTS keys (
-            kid TEXT PRIMARY KEY,
-            secretKey TEXT NOT NULL,
-            createdAt TEXT NOT NULL,
-            expiresIn TEXT NOT NULL,
-            isActive INTEGER NOT NULL DEFAULT 1
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            email TEXT UNIQUE,
+            date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
         )`, (err) => {
             if (err) 
             {
