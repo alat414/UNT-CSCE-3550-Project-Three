@@ -269,7 +269,46 @@ function getUserPosts(allowedRoles)
     return filteredPosts;
 }
 
+/* *************************************************
+* Helper function to get all posts. 
+*
+* @param : na
+* @return : array of posts
+* @note : na
+* ************************************************* */
+function getAllPosts() 
+{ 
+    
+    return [...posts];
+    
+}
 
+/* *************************************************
+* Helper function to add a new post (for expansion).
+*
+* @param username : The given username for the post author.
+* @param title : The post title
+* @return : The created post object
+* @note : na
+* ************************************************* */
+function addPosts(username, title)
+{
+    
+    if (!username || !title)
+    {
+        throw new Error('Username and title are required');
+    }
+
+    const newPost = {
+        username: username,
+        title: title,
+        id: posts.length + 1,
+        createdAt: new Date().toISOString()
+    };
+
+    posts.push(newPost)
+    return newPost;
+}
 /* *************************************************
 * Export middleware and utilities
 
