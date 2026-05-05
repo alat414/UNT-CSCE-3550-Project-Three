@@ -1,4 +1,4 @@
-"#UNT-CSCE-Project-Two"
+"#UNT-CSCE-Project-Three"
 
 🚀 Project Name
 A RESTful JWKS server that authenticates two users for obtaining login credentials and rejecting those without authentication, with
@@ -13,8 +13,8 @@ Live Site
 📦 Installation
 Clone the repo and install dependencies:
 
-git clone https://github.com/alat414/UNT-CSCE-3550-Project-Two
-cd ProjectTwo
+git clone https://github.com/alat414/UNT-CSCE-3550-Project-Three
+cd ProjectThree
 pip 
 🛠 Usage
 Run the app:
@@ -40,9 +40,9 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 None
 
 🙌 Credits
-Inspired by Web Developer Simplified
+Inspired by Web Developer Simplified and Th30z Code
 
-Introductory video on JWK servers using json web tokens.
+Introductory video on JWK servers using json web tokens and RSA + AES Encryption Explained
 
 About
 Developing RESTful JWKS server
