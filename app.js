@@ -13,7 +13,6 @@ require('dotenv').config()
 const jwt = require('jsonwebtoken')
 const keyStorage = require('./keyStorage');
 
-
 /* *************************************************
 * Post information used for the requests.
 
