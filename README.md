@@ -1,7 +1,8 @@
-"#UNT-CSCE-Project-Three"
+"#UNT-CSCE-Project-Two"
 
 🚀 Project Name
-To further enhance the security and functionality of our JWKS server through implementing AES encryption for private keys, adding user registration capabilities, logging authentication requests, and introducing a rate limiter to control request frequency.
+A RESTful JWKS server that authenticates two users for obtaining login credentials and rejecting those without authentication, with
+SQLite 3 implemented.
 
 The server uses the following: JSON web tokens (JWTs), running on HTTPS 8080, and key ids. Additionally, it includes tests and test suites to ensure the server is free of bugs.
 
@@ -12,8 +13,8 @@ Live Site
 📦 Installation
 Clone the repo and install dependencies:
 
-git clone https://github.com/alat414/UNT-CSCE-3550-Project-Three
-cd ProjectThree
+git clone https://github.com/alat414/UNT-CSCE-3550-Project-Two
+cd ProjectTwo
 pip 
 🛠 Usage
 Run the app:
@@ -39,10 +40,9 @@ Pull requests are welcome! For major changes, please open an issue first to disc
 None
 
 🙌 Credits
-Inspired by Web Developer Simplified and Th30z Code
+Inspired by Web Developer Simplified
 
-Introductory video on JWK servers using json web tokens and video on RSA + AES Encryption Explained with Coding Examples
-
+Introductory video on JWK servers using json web tokens.
 
 About
 Developing RESTful JWKS server
