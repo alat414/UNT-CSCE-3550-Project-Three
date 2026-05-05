@@ -112,11 +112,11 @@ function authenticateToken(req, res, next)
         {
             if (!keyBuffer) 
             {
-                console.log(`Authentication failed: Key ID ${keyID} not found or invalid`);
+                console.log(`Authentication failed: Key ID ${keyID} not found, expired, or inactive`);
                 return res.status(401).json
                 ({
                     error: 'Key invalid',
-                    message: 'Token was signed with invalid key, retry.'
+                    message: 'Token was signed with invalid, expired, or inactive key, retry.'
                 });
             }
             
@@ -133,7 +133,7 @@ function authenticateToken(req, res, next)
                         return res.status(403).json
                         ({ 
                             error: 'Token Expired',
-                            message: 'Your token has expired. Please login again'
+                            message: 'Your token has expired. Please use a refresh token to get a new one.'
                         });
                     }
 
@@ -143,7 +143,7 @@ function authenticateToken(req, res, next)
                         return res.status(403).json
                         ({ 
                             error: 'Invalid Token',
-                            message: 'Token signature verification failed'
+                            message: 'Token signature verification failed, possible tampered token.'
                         });
                     }
 
@@ -212,15 +212,36 @@ function requireUser(req, res, next)
 }
 
 /* *************************************************
-* Helper function to create posts filtered by username
+* Middleware for role-based access control.
 
-* @param username : The username input used for filtering
-* @return : Posts by the user
+* @param allowedRoles : Array of allowed role names.
+* @return : Express middleware function.
 * @note : na
 * ************************************************* */
-function getUserPosts(username)
+function requireRole(allowedRoles)
 {
-    return posts.filter(post => post.username.toLowerCase() === username.toLowerCase());
+    return (req, res, next) => 
+    {
+        if (!req.user)
+        {
+            return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'User not authenticated'
+            });
+        }
+
+        if (allowedRoles.includes(req.user.role))
+        {
+            next();
+        }
+        else
+        {
+            res.status(403).json({
+                error: 'Forbidden',
+                message: 'Insufficient permissions'
+            });
+        }
+    }
 }
 
 
