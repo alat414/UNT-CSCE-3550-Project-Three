@@ -291,7 +291,7 @@ function getAllPosts()
 * @return : The created post object
 * @note : na
 * ************************************************* */
-function addPosts(username, title)
+function addPost(username, title)
 {
     
     if (!username || !title)
@@ -317,7 +317,11 @@ function addPosts(username, title)
 module.exports = 
 { 
     authenticateToken,
-    posts,
-    getUserPosts
+    getUserPosts,
+    getAllPosts,
+    addPost,
+    requireUser,
+    requireRole,
+    posts
 };
 
