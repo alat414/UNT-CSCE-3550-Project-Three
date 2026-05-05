@@ -21,6 +21,15 @@ const { db } = require('./database');
 // Valid Users declared.
 const VALID_USERS = ['Nanna', 'nanna', 'Raggi', 'raggi'];
 
+const { body, validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 50
+})
+
+app.use('/api/', limiter);
+
 app.use(express.json())
 
 let serverStarted = false;
@@ -182,8 +191,18 @@ app.post('/token', async (req, res) =>
 * @exception : none
 * @note : na
 * ************************************************* */
-app.post('/login', async (req, res) => 
+app.post('/login', body('username').isString().notEmpty(),
+    (req, res) => 
 {
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty())
+    {
+        return res.status(400).json
+        ({
+            errors: errors.array()
+        });
+    }
     const username = req.body.username;
     
     if (!username)
