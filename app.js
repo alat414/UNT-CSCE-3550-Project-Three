@@ -244,6 +244,30 @@ function requireRole(allowedRoles)
     }
 }
 
+/* *************************************************
+* Helper function to get posts filtered by username.
+*
+* @param username : The given username to filter posts.
+* @return : Array of all filtered posts belonging to the 
+*           respective user. 
+* @note : na
+* ************************************************* */
+function getUserPosts(allowedRoles)
+{
+    
+    if (!username || typeof username !== 'string')
+    {
+        console.log('getUserPosts called with invalid username:', username);
+        return [];
+    }
+
+    const filteredPosts = posts.filter(post => 
+        post.username.toLowerCase() === username.toLowerCase()
+    );
+
+    console.log(`getUserPosts: Found ${filteredPosts.length} posts for user ${username}`);
+    return filteredPosts;
+}
 
 
 /* *************************************************
