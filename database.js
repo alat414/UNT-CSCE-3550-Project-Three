@@ -189,9 +189,12 @@ const userDB =
 
 const authorization_logsDB = 
 {
-    // Find user by username
-    findUserByUsername: (username, callback) => {
-        db.get(`SELECT * FROM users WHERE username = ? AND isActive = 1`, [username], callback);
+    // Login autnetication attempt
+    logAttempt: (username, ipAddress, userAgent, success, failure = null, callback) => {
+        const timestamp = new Date().toISOString();
+        db.run(`INSERT INTO auth_logs (username, ipAddress, userAgent, success, failureReason, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)`, 
+                [username, ipAddress, userAgent, success ? 1 : 0, failureReason, timestamp], callback);
     },
 
     // Find user by ID
