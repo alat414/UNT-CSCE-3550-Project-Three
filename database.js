@@ -13,6 +13,13 @@ console.log(`Connecting to SQLite database at: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath);
 
+/** The following is a helper function to 
+ * hash passwords in proper format
+ * 
+ * @param {*} password 
+ * @returns A SHA 256 cryptographic hash of the given
+ *          parameter as a hexadecimal string.
+ */
 function hashPassword(password)
 {
     return crypto.createHast('sha256').update(password).digest('hex');
@@ -37,7 +44,8 @@ db.serialize(() => {
             email TEXT UNIQUE,
             date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP
-        )`, (err) => {
+        )`, (err) => 
+        {
             if (err) 
             {
                 console.error('Error creating table:', err.message);
@@ -61,7 +69,23 @@ db.serialize(() => {
                     }
                 ];
 
-                
+                defaultUsers.forEach(user =>
+                {
+                    db.run(`INSERT OR IGNORE INTO users (username, password, role, createdAt)
+                            VALUES (?, ?, ?, ?)`,
+                        [user.username, hashPassword(user.password), user.role, new Date().toISOString()],
+                        (err) => 
+                        {
+                            if (err)
+                            {
+                                console.error(`Error creating default user ${user.username}:`, err.message);
+                            }
+                            else
+                            {
+                                console.log(`Default user '${user.username}' created`);
+                            }
+                        });
+                });
             }
         });
     });
