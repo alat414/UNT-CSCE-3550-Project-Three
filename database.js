@@ -108,21 +108,25 @@ db.serialize(() => {
         } 
     });
 
-    db.run(`CREATE TABLE IF NOT EXISTS authorization_logs (
+    db.run(`CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        request_ip TEXT NOT NULL
-        request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        user_id INTEGER, 
+        tokenID TEXT UNIQUE NOT NULL,
+        userID INTEGER NOT NULL,
+        tokenType TEXT NOT NULL,
+        issuedAt TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        revoked INTEGER DEFAULT 0,
+        revokedAt TEXT,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`, (err) => 
     {
         if (err)
         {
-            console.error('Error creating authorization_logs tables', err.message);
+            console.error('Error creating tokens tables', err.message);
         }
         else
         {
-            console.log('Authorization logs table created successfully');
+            console.log('Tokens table created successfully');
         } 
     });
 });
