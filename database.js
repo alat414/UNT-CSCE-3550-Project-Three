@@ -131,7 +131,8 @@ db.serialize(() => {
     });
 });
 
-const userDB = {
+const userDB = 
+{
     // Find user by username
     findUserByUsername: (username, callback) => {
         db.get(`SELECT * FROM users WHERE username = ? AND isActive = 1`, [username], callback);
@@ -184,6 +185,31 @@ const userDB = {
         );
     },
 
+}
+
+const authorization_logsDB = 
+{
+    // Find user by username
+    findUserByUsername: (username, callback) => {
+        db.get(`SELECT * FROM users WHERE username = ? AND isActive = 1`, [username], callback);
+    },
+
+    // Find user by ID
+    findUserByID: (id, callback) => {
+        db.get(`SELECT id, username, email, role, createdAt, lastLogin FROM users WHERE id = ? AND isActive = 1`, [id], callback);
+    },
+
+    // Create a new user
+    createUser: (username, password, role = 'user', callback) => {
+        const password_hash = hashPassword(password);
+        const createdAt = new Date().toISOString();
+
+        db.run(`INSERT INTO users (username, password_hash, role, createdAt)
+                VALUES (?, ?, ?, ?)`,
+            [username, password_hash, role, createdAt],
+            callback
+        );
+    },
 }
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
