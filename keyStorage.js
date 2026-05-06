@@ -188,15 +188,15 @@ class keyStorage
 
     
 
-    /* *************************************************
-    * This function returns the current, active
-    *  key via the getKey method. 
-    * 
-    * @param  : none
-    * @return : The active AES key or null if no key exists.
-    * @exception : none
-    * @note : na
-    * ************************************************* */
+    /************************************************************
+     * This function returns the current, active
+     * key via the getKey method. 
+     * 
+     * @param  : none
+     * @exception : none
+     * @returns : The active AES key or null if no key exists.
+     * @note : na
+     ************************************************************/
     async getCurrentKey()
     {
         console.log(`Getting current AES key. Active key ID: ${this.activeKeyID}`);
