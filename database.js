@@ -90,7 +90,41 @@ db.serialize(() => {
         });
     });
 
-    db.run(`CREATE TABLE IF NOT EXISTS user`)
+    db.run(`CREATE TABLE IF NOT EXISTS authorization_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_ip TEXT NOT NULL
+        request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER, 
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`, (err) => 
+    {
+        if (err)
+        {
+            console.error('Error creating authorization_logs tables', err.message);
+        }
+        else
+        {
+            console.log('Authorization logs table created successfully');
+        } 
+    });
+
+    db.run(`CREATE TABLE IF NOT EXISTS authorization_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_ip TEXT NOT NULL
+        request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER, 
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`, (err) => 
+    {
+        if (err)
+        {
+            console.error('Error creating authorization_logs tables', err.message);
+        }
+        else
+        {
+            console.log('Authorization logs table created successfully');
+        } 
+    });
 });
 
 // Handle graceful shutdown
