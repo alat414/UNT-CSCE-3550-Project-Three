@@ -224,6 +224,26 @@ const tokenDB =
                 [tokenID, userID, tokenType, issuedAt, expiresAt], callback);
     },
 
+    // Revoke a token
+    revokeToken: (tokenID, callback) => 
+    {
+        const revokedAt = new Date().toISOString();
+
+        db.run(`UPDATE tokens SET revoked = 1, revokedAt = ? WHERE tokenID = ?` 
+                [revokedAt, tokenID], callback);
+    },
+
+    // Check if the token is valid
+    storeToken: (tokenID, userID, tokenType, expiresInSeconds, callback) => 
+    {
+        const issuedAt = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+        db.run(`INSERT INTO tokens (tokenID, userID, tokenType, issuedAt, expiresAt)
+                VALUES (?, ?, ?, ?, ?, ?)`, 
+                [tokenID, userID, tokenType, issuedAt, expiresAt], callback);
+    },
+
 
 }
 // Handle graceful shutdown
