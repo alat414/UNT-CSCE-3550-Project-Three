@@ -13,6 +13,10 @@ console.log(`Connecting to SQLite database at: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath);
 
+function hashPassword(password)
+{
+    return crypto.createHast('sha256').update(password).digest('hex');
+}
 
 // Create table immediately
 db.serialize(() => {
@@ -42,9 +46,27 @@ db.serialize(() => {
             else 
             {
                 console.log('AES keys table created successfully ');
+
+                const defaultUsers = 
+                [
+                    {
+                        username: 'Nanna',
+                        password: 'LittleTalks123',
+                        role: 'admin',
+                    },
+                    {
+                        username: 'Raggi',
+                        password: 'MountainSound098',
+                        role: 'user'
+                    }
+                ];
+
+                
             }
         });
     });
+
+    db.run(`CREATE TABLE IF NOT EXISTS user`)
 });
 
 // Handle graceful shutdown
