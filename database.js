@@ -174,6 +174,16 @@ const userDB = {
         );
     },
 
+    // Lock user account after too many failed attempts              
+    lockUserAccount: (username, callback) => {
+        const lockedUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
+
+        db.run(`UPDATE users SET lockedUntil = ? WHERE username = ?`,
+            [lockedUntil, username],
+            callback
+        );
+    },
+
 }
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
