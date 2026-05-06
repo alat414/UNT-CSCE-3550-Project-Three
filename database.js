@@ -158,8 +158,18 @@ const userDB = {
     UpdateLastLogin: (username, callback) => {
         const lastLogin = new Date().toISOString();
 
-        db.run(`UPDATE users SET lastLogin = ?, failedLoginAttempts = 0 WHERE username = ?)`,
+        db.run(`UPDATE users SET lastLogin = ?, failedLoginAttempts = 0 WHERE username = ?`,
             [lastLogin, username],
+            callback
+        );
+    },
+
+    // Record failed login attempt              
+    recordFailedLogin: (username, callback) => {
+        const lastLogin = new Date().toISOString();
+
+        db.run(`UPDATE users SET failedLoginAttempts = failedLoginAttempts + 1 WHERE username = ?`,
+            [username],
             callback
         );
     },
