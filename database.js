@@ -155,13 +155,11 @@ const userDB = {
     },
 
     // Update last login time
-    UpdateLastLogin: (username, password, role = 'user', callback) => {
-        const password_hash = hashPassword(password);
-        const createdAt = new Date().toISOString();
+    UpdateLastLogin: (username, callback) => {
+        const lastLogin = new Date().toISOString();
 
-        db.run(`INSERT INTO users (username, password_hash, role, createdAt)
-                VALUES (?, ?, ?, ?)`,
-            [username, password_hash, role, createdAt],
+        db.run(`UPDATE users SET lastLogin = ?, failedLoginAttempts = 0 WHERE username = ?)`,
+            [lastLogin, username],
             callback
         );
     },
