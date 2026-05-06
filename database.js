@@ -197,22 +197,16 @@ const authorization_logsDB =
                 [username, ipAddress, userAgent, success ? 1 : 0, failureReason, timestamp], callback);
     },
 
-    // Find user by ID
-    findUserByID: (id, callback) => {
-        db.get(`SELECT id, username, email, role, createdAt, lastLogin FROM users WHERE id = ? AND isActive = 1`, [id], callback);
-    },
+    // Get recent failed attempts for a user. 
+    getRecentFailedAttempts: (username, minutes = 15, callback) => 
+    {
+        const since = new Date(Date.now() - minutes * 60000).toISOString();
 
-    // Create a new user
-    createUser: (username, password, role = 'user', callback) => {
-        const password_hash = hashPassword(password);
-        const createdAt = new Date().toISOString();
-
-        db.run(`INSERT INTO users (username, password_hash, role, createdAt)
-                VALUES (?, ?, ?, ?)`,
-            [username, password_hash, role, createdAt],
+        db.all(`SELECT COUNT (*) as count FROM auth_logs WHERE username = ? AND success = 0 AND timestamp > ?`,
+            [username, since],
             callback
         );
-    },
+    }
 }
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
