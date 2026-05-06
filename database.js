@@ -211,26 +211,20 @@ const authorization_logsDB =
 }
 
 // Helper functions for logins to database
-const authorization_logsDB = 
+const tokenDB = 
 {
-    // Login autnetication attempt
-    logAttempt: (username, ipAddress, userAgent, success, failure = null, callback) => {
-        const timestamp = new Date().toISOString();
-        db.run(`INSERT INTO auth_logs (username, ipAddress, userAgent, success, failureReason, timestamp)
+    // Store issued token
+    storeToken: (tokenID, userID, tokenType, expiresInSeconds, callback) => 
+    {
+        const issuedAt = new Date().toISOString();
+        const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+
+        db.run(`INSERT INTO tokens (tokenID, userID, tokenType, issuedAt, expiresAt)
                 VALUES (?, ?, ?, ?, ?, ?)`, 
-                [username, ipAddress, userAgent, success ? 1 : 0, failureReason, timestamp], callback);
+                [tokenID, userID, tokenType, issuedAt, expiresAt], callback);
     },
 
-    // Get recent failed attempts for a user. 
-    getRecentFailedAttempts: (username, minutes = 15, callback) => 
-    {
-        const since = new Date(Date.now() - minutes * 60000).toISOString();
 
-        db.all(`SELECT COUNT (*) as count FROM auth_logs WHERE username = ? AND success = 0 AND timestamp > ?`,
-            [username, since],
-            callback
-        );
-    }
 }
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
