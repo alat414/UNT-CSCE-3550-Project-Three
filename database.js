@@ -234,18 +234,16 @@ const tokenDB =
     },
 
     // Check if the token is valid
-    storeToken: (tokenID, userID, tokenType, expiresInSeconds, callback) => 
+    isTokenValid: (tokenID, callback) => 
     {
-        const issuedAt = new Date().toISOString();
-        const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+        const now = new Date().toISOString();
 
-        db.run(`INSERT INTO tokens (tokenID, userID, tokenType, issuedAt, expiresAt)
-                VALUES (?, ?, ?, ?, ?, ?)`, 
-                [tokenID, userID, tokenType, issuedAt, expiresAt], callback);
-    },
+        db.get(`SELECT 1 FROM tokens WHERE tokenID = ? AND revoked = 0 AND expiresAt > ?`
+                [tokenID, now], 
+                (err, row) => callback(err, !!row));
+    }
+};
 
-
-}
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('Closing database...');
