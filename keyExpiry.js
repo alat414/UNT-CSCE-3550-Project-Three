@@ -312,7 +312,9 @@ app.post('/login', async (req, res) =>
                 keyID: activeKeyID,
                 keyExpiresIn: keyData.expiresIn,
                 tokenExpiresIn: '30 seconds',
-                algorithm: 'HS256'
+                algorithm: 'HS256',
+                userId: user.id,
+                role: user.role
             });
 
         } 
