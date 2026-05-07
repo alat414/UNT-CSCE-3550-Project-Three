@@ -213,7 +213,7 @@ app.post('/login', async (req, res) =>
 
     if (!username || !password)
     {
-        return res.status(400).json({ error: 'Username is required '});
+        return res.status(400).json({ error: 'Username and password is required '});
     }
 
     // Check if the user exists in the DB.
