@@ -12,6 +12,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken')
 const keyStorage = require('./keyStorage');
 const { authenticateToken, getUserPosts } = require('./app.js')
+const { userDB, authorization_logsDB } = require('./database');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -180,9 +181,12 @@ app.post('/token', async (req, res) =>
 
 /* *************************************************
 * This function authenticates the user and issues
-* tokens. First, validates the user, second, ensures
+* tokens. First, validates the user through both
+* username and password validation, second, ensures
 * the key is valid, and then, access token is generated-
-* both access and refresh tokens. 
+* both access and refresh tokens. Login endpoint also 
+* keeps track of all login attempts and/or if account
+* is locked. 
 
 
 * @param req : request
@@ -191,9 +195,12 @@ app.post('/token', async (req, res) =>
 * @exception : none
 * @note : na
 * ************************************************* */
-app.post('/login', body('username').isString().notEmpty(),
-    (req, res) => 
+app.post('/login', async (req, res) => 
 {
+    const { username, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
     const errors = validationResult(req);
 
     if(!errors.isEmpty())
@@ -203,85 +210,119 @@ app.post('/login', body('username').isString().notEmpty(),
             errors: errors.array()
         });
     }
-    const username = req.body.username;
-    
-    if (!username)
-    {
-        return res.status(400).json({ error: 'Username is required '})
-    }
-    
-    if (!VALID_USERS.includes(username))
-    {
-        console.log(`Unauthorized login attempt: ${username}`);
-        return res.status(401).json
-        ({
-            error: 'Unauthorized',
-            message: 'Invalid Username'
-        });
-    }
-    
-    console.log(`Authorized user: ${username}`);
-    const user = { name: username };
 
-    try 
+    if (!username || !password)
     {
-        const aesKey = await keyStorage.getCurrentKey();
-        const activeKeyID = keyStorage.getCurrentKeyID();
-        
-        if(!aesKey || !activeKeyID)
+        return res.status(400).json({ error: 'Username is required '});
+    }
+
+    // Check if the user exists in the DB.
+    userDB.findUserByUsername(username, async (err, user) => 
+    {
+        if (err || !user) 
         {
-            console.error('Login failed: No active key available');
-            return res.status(500).json({ error: 'Server configuration error - No key available' });
+            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'User not found');
+            return res.status(401).json({ error: 'Invalid credentials'});
         }
 
-        const keyData = await keyStorage.getKeyData(activeKeyID);
-        if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+        // Check if the account is locked.
+        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) 
         {
-            console.error('Login failed: Active key is expired');
-            return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+            return res.status(401).json
+            ({ 
+                error: 'Account locked',
+                message: `Too many failed attempts. Try again after ${new Date(user.lockedUntil).toLocaleTimeString()}`
+            });
         }
 
-        const accessToken = jwt.sign
-        (
-            user,
-            aesKey,
+        // Verify the password
+        const hashPassword = require('./database').hashPassword;
+    
+        if (hashPassword(password) !== user.password_hash)
+        {
+            await userDB.recordFailedLogin(username);
+            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'Invalid password');
+
+            const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+            if (failedAttempts >= 5)
             {
-                expiresIn: '30s',
-                algorithm: 'HS256',
-                header: 
-                {
-                    kid: activeKeyID,
-                    alg: 'HS256'
-                }
+                await userDB.lockUserAccount(username, 15);
             }
-        );
 
-        const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-        if (!refreshTokenSecret)
-        {
-            console.error('REFRESH_TOKEN_SECRET not set');
-            return res.status(500).json({ error: 'Server Configuration Error'});
+            return res.status(401).json
+            ({
+                error: 'Invalid credentials'
+            
+            });
         }
 
-        const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+        // Successful login - update last login and log success.
+        await userDB.updateLastLogin(username);
+        await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
 
-        res.json
-        ({ 
-            accessToken: accessToken, 
-            refreshToken: refreshToken,
-            keyID: activeKeyID,
-            keyExpiresIn: keyData.expiresIn,
-            tokenExpiresIn: '30 seconds',
-            algorithm: 'HS256'
-        });
+        console.log(`Authorized user: ${username}`);
+        const user = { name: username };
 
-    } 
-    catch (error) 
-    {
-        console.error('Login error:', error);
-        res.status(500).json({ error:' Server Configuration error'})
-    }; 
-     
+        try 
+        {
+            const aesKey = await keyStorage.getCurrentKey();
+            const activeKeyID = keyStorage.getCurrentKeyID();
+            
+            if(!aesKey || !activeKeyID)
+            {
+                console.error('Login failed: No active key available');
+                return res.status(500).json({ error: 'Server configuration error - No key available' });
+            }
+
+            const keyData = await keyStorage.getKeyData(activeKeyID);
+            if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+            {
+                console.error('Login failed: Active key is expired');
+                return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+            }
+
+            const accessToken = jwt.sign
+            (
+                user,
+                aesKey,
+                {
+                    expiresIn: '30s',
+                    algorithm: 'HS256',
+                    header: 
+                    {
+                        kid: activeKeyID,
+                        alg: 'HS256'
+                    }
+                }
+            );
+
+            const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+            if (!refreshTokenSecret)
+            {
+                console.error('REFRESH_TOKEN_SECRET not set');
+                return res.status(500).json({ error: 'Server Configuration Error'});
+            }
+
+            const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+
+            res.json
+            ({ 
+                accessToken: accessToken, 
+                refreshToken: refreshToken,
+                keyID: activeKeyID,
+                keyExpiresIn: keyData.expiresIn,
+                tokenExpiresIn: '30 seconds',
+                algorithm: 'HS256'
+            });
+
+        } 
+        catch (error) 
+        {
+            console.error('Login error:', error);
+            res.status(500).json({ error:' Server Configuration error'})
+        };
+
+    })
 });
 
 /* *************************************************
