@@ -26,8 +26,9 @@ const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
-    max: 50
-})
+    max: 10,
+    message: { error: 'Too many login attempts, please try again later'}
+});
 
 app.use('/api/', limiter);
 
@@ -195,7 +196,7 @@ app.post('/token', async (req, res) =>
 * @exception : none
 * @note : na
 * ************************************************* */
-app.post('/login', async (req, res) => 
+app.post('/login', limiter,  async (req, res) => 
 {
     const { username, password } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
