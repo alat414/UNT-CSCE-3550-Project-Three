@@ -261,7 +261,7 @@ app.post('/login', async (req, res) =>
         await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
 
         console.log(`Authorized user: ${username}`);
-        const user = { name: username };
+        const tokenUser = { name: username };
 
         try 
         {
