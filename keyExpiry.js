@@ -27,7 +27,10 @@ const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 10,
-    message: { error: 'Too many login attempts, please try again later'}
+    message: { error: 'Too many login attempts, please try again later'},
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, 
 });
 
 app.use('/api/', limiter);
@@ -196,7 +199,13 @@ app.post('/token', async (req, res) =>
 * @exception : none
 * @note : na
 * ************************************************* */
-app.post('/login', limiter,  async (req, res) => 
+app.post('/login', 
+    limiter,  
+    // validation middleware
+    body('username').isString().notEmpty().withMessage('Username is required'),
+    body('password').isString().notEmpty().withMessage('Password is required'),
+    
+    async (req, res) => 
 {
     const { username, password } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -284,7 +293,7 @@ app.post('/login', limiter,  async (req, res) =>
 
             const accessToken = jwt.sign
             (
-                user,
+                tokenUser,
                 aesKey,
                 {
                     expiresIn: '30s',
