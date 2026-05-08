@@ -231,7 +231,15 @@ app.post('/login',
     limiter,  
     // validation middleware
     body('username').isString().notEmpty().withMessage('Username is required'),
-    body('password').isString().notEmpty().withMessage('Password is required'),
+    body('password').isString().notEmpty().withMessage('Password is required')
+    .custom((value) => {
+        const errors = validatePasswordStrength(value);
+        if (errors.length > 0)
+        {
+            throw new Error(errors.join(', '));
+        }
+        return true;
+    }),
     
     async (req, res) => 
 {
