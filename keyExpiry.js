@@ -373,6 +373,174 @@ app.post('/login',
     })
 });
 
+/****************************************************
+* This endpoint creates a new user account with 
+* username, email, and password.
+
+* @param req : request with registration info
+* @param res : response with user details or error
+*              messages
+* @return : created user info 
+* @exception : none
+* @note : na
+ ************************************************** */
+app.post('/register',
+    // Rate limiter for registration (preventing malicious activity) 
+    rateLimit({
+        windowMs: 60 * 60 * 1000, // one hour
+        max: 5, // 5 registration attempts per hr.
+        message: { error: 'Too many registration attempts, try again later'} 
+    }),  
+
+
+    // validation middleware
+    body('username').isString().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 50})
+    .withMessage('Username must be more than 3 characters')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username cannot contain special characters'),
+
+    body('email').isEmail().withMessage('Valid email address is required').normalizeEmail(),
+
+    body('password').isString().notEmpty().withMessage('Password is required').isLength({ min: 8})
+    .withMessage('Password must be at least 8 characters long').matches(/[A-Z]/)
+    .withMessage('Password must contain at least one uppercase character')
+    .matches(/[a-z]/)
+    .withMessage('Password must contain at least one lowercase character')
+    .matches(/[0-9]/)
+    .withMessage('Password must contain at least one digit')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character'),
+    
+    async (req, res) => 
+{
+    const { username, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty())
+    {
+        return res.status(400).json
+        ({
+            errors: errors.array()
+        });
+    }
+
+    if (!username || !password)
+    {
+        return res.status(400).json({ error: 'Username and password is required '});
+    }
+
+    // Check if the user exists in the DB.
+    userDB.findUserByUsername(username, async (err, user) => 
+    {
+        if (err || !user) 
+        {
+            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'User not found');
+            return res.status(401).json({ error: 'Invalid credentials'});
+        }
+
+        // Check if the account is locked.
+        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) 
+        {
+            return res.status(401).json
+            ({ 
+                error: 'Account locked',
+                message: `Too many failed attempts. Try again after ${new Date(user.lockedUntil).toLocaleTimeString()}`
+            });
+        }
+
+        // Verify the password
+        const hashPassword = require('./database').hashPassword;
+    
+        if (hashPassword(password) !== user.password_hash)
+        {
+            await userDB.recordFailedLogin(username);
+            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'Invalid password');
+
+            const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+            if (failedAttempts >= 5)
+            {
+                await userDB.lockUserAccount(username, 15);
+            }
+
+            return res.status(401).json
+            ({
+                error: 'Invalid credentials'
+            
+            });
+        }
+
+        // Successful login - update last login and log success.
+        await userDB.updateLastLogin(username);
+        await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
+
+        console.log(`Authorized user: ${username}`);
+        const tokenUser = { name: username };
+
+        try 
+        {
+            const aesKey = await keyStorage.getCurrentKey();
+            const activeKeyID = keyStorage.getCurrentKeyID();
+            
+            if(!aesKey || !activeKeyID)
+            {
+                console.error('Login failed: No active key available');
+                return res.status(500).json({ error: 'Server configuration error - No key available' });
+            }
+
+            const keyData = await keyStorage.getKeyData(activeKeyID);
+            if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+            {
+                console.error('Login failed: Active key is expired');
+                return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+            }
+
+            const accessToken = jwt.sign
+            (
+                tokenUser,
+                aesKey,
+                {
+                    expiresIn: '30s',
+                    algorithm: 'HS256',
+                    header: 
+                    {
+                        kid: activeKeyID,
+                        alg: 'HS256'
+                    }
+                }
+            );
+
+            const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+            if (!refreshTokenSecret)
+            {
+                console.error('REFRESH_TOKEN_SECRET not set');
+                return res.status(500).json({ error: 'Server Configuration Error'});
+            }
+
+            const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+
+            res.json
+            ({ 
+                accessToken: accessToken, 
+                refreshToken: refreshToken,
+                keyID: activeKeyID,
+                keyExpiresIn: keyData.expiresIn,
+                tokenExpiresIn: '30 seconds',
+                algorithm: 'HS256',
+                userId: user.id,
+                role: user.role
+            });
+
+        } 
+        catch (error) 
+        {
+            console.error('Login error:', error);
+            res.status(500).json({ error:' Server Configuration error'})
+        };
+
+    })
+});
+
 /* *************************************************
 * This function returns posts for the authenticated 
 * user.
