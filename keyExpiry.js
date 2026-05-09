@@ -394,137 +394,151 @@ app.post('/register',
 
 
     // validation middleware
-    body('username').isString().notEmpty().withMessage('Username is required').isLength({ min: 3, max: 50})
-    .withMessage('Username must be more than 3 characters')
-    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username cannot contain special characters'),
+    body('username')
+        .isString()
+        .notEmpty()
+        .withMessage('Username is required')
+        .isLength({ min: 3, max: 50})
+        .withMessage('Username must be more than 3 characters')
+        .matches(/^[a-zA-Z0-9_]+$/)
+        .withMessage('Username cannot contain special characters'),
 
-    body('email').isEmail().withMessage('Valid email address is required').normalizeEmail(),
+    body('email')
+        .isEmail()
+        .withMessage('Valid email address is required')
+        .normalizeEmail(),
 
-    body('password').isString().notEmpty().withMessage('Password is required').isLength({ min: 8})
-    .withMessage('Password must be at least 8 characters long').matches(/[A-Z]/)
-    .withMessage('Password must contain at least one uppercase character')
-    .matches(/[a-z]/)
-    .withMessage('Password must contain at least one lowercase character')
-    .matches(/[0-9]/)
-    .withMessage('Password must contain at least one digit')
-    .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character'),
+    body('password')
+        .isString()
+        .notEmpty()
+        .withMessage('Password is required')
+        .isLength({ min: 8})
+        .withMessage('Password must be at least 8 characters long')
+        .matches(/[A-Z]/)
+        .withMessage('Password must contain at least one uppercase character')
+        .matches(/[a-z]/)
+        .withMessage('Password must contain at least one lowercase character')
+        .matches(/[0-9]/)
+        .withMessage('Password must contain at least one digit')
+        .matches(/[!@#$%^&*(),.?":{}|<>]/)
+        .withMessage('Password must contain at least one special character'),
     
     async (req, res) => 
-{
-    const { username, password } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'];
-
-    const errors = validationResult(req);
-    if(!errors.isEmpty())
     {
-        return res.status(400).json
-        ({
-            error: 'Validation failed',
-            details: errors.array()
-        });
-    }
+        const { username, password } = req.body;
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.headers['user-agent'];
 
-    if (!username || !password)
-    {
-        return res.status(400).json({ error: 'Username and password is required '});
-    }
-
-
-    // Successful login - update last login and log success.
-    await userDB.updateLastLogin(username);
-    await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
-
-    console.log(`Authorized user: ${username}`);
-    const tokenUser = { name: username };
-
-    try 
-    {
-        const existingUser = await Promise((resolve, reject) => 
+        const errors = validationResult(req);
+        if(!errors.isEmpty())
         {
-            userDB.findUserByUsername(username, (err, user) => 
-            {
-                if (err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    resolve(user);
-                }
-            })
-        });
-        
-        if(existingUser)
-        {
-            return res.status(400).json({ error: 'Username', message: 'Please choose another username' });
+            return res.status(400).json
+            ({
+                error: 'Validation failed',
+                details: errors.array()
+            });
         }
 
-        const existingEmail = await Promise((resolve, reject) => 
+        if (!username || !password)
         {
-            db.get(`SELECT id FROM users WHERE email = ?`, [email], (err, row) => 
-            {
-                if (err)
-                {
-                    reject(err);
-                }
-                else
-                {
-                    resolve(row);
-                }
-            })
-        });
-        
-        if(existingEmail)
-        {
-            return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
+            return res.status(400).json({ error: 'Username and password is required '});
         }
 
-        const { hashPassword } = require('./database');
-        const passwordHash = hashPassword(password);
-        const createdAt = new Date().toISOString();
-        ///////////////////////////////
-        if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
-        {
-            console.error('Login failed: Active key is expired');
-            return res.status(500).json({ error: 'Key rotation in progress - please try again' });
-        }
 
-        const accessToken = jwt.sign
-        (
-            tokenUser,
-            aesKey,
+        // Successful login - update last login and log success.
+        await userDB.updateLastLogin(username);
+        await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
+
+        console.log(`Authorized user: ${username}`);
+        const tokenUser = { name: username };
+
+        try 
+        {
+            const existingUser = await Promise((resolve, reject) => 
             {
-                expiresIn: '30s',
-                algorithm: 'HS256',
-                header: 
+                userDB.findUserByUsername(username, (err, user) => 
                 {
-                    kid: activeKeyID,
-                    alg: 'HS256'
-                }
+                    if (err)
+                    {
+                        reject(err);
+                    }
+                    else
+                    {
+                        resolve(user);
+                    }
+                })
+            });
+            
+            if(existingUser)
+            {
+                return res.status(400).json({ error: 'Username', message: 'Please choose another username' });
             }
-        );
 
-        const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-        if (!refreshTokenSecret)
-        {
-            console.error('REFRESH_TOKEN_SECRET not set');
-            return res.status(500).json({ error: 'Server Configuration Error'});
-        }
+            const existingEmail = await Promise((resolve, reject) => 
+            {
+                db.get(`SELECT id FROM users WHERE email = ?`, [email], (err, row) => 
+                {
+                    if (err)
+                    {
+                        reject(err);
+                    }
+                    else
+                    {
+                        resolve(row);
+                    }
+                })
+            });
+            
+            if(existingEmail)
+            {
+                return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
+            }
 
-        const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+            const { hashPassword } = require('./database');
+            const passwordHash = hashPassword(password);
+            const createdAt = new Date().toISOString();
+            ///////////////////////////////
+            if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+            {
+                console.error('Login failed: Active key is expired');
+                return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+            }
 
-        res.json
-        ({ 
-            accessToken: accessToken, 
-            refreshToken: refreshToken,
-            keyID: activeKeyID,
-            keyExpiresIn: keyData.expiresIn,
-            tokenExpiresIn: '30 seconds',
-            algorithm: 'HS256',
-            userId: user.id,
-            role: user.role
-        });
+            const accessToken = jwt.sign
+            (
+                tokenUser,
+                aesKey,
+                {
+                    expiresIn: '30s',
+                    algorithm: 'HS256',
+                    header: 
+                    {
+                        kid: activeKeyID,
+                        alg: 'HS256'
+                    }
+                }
+            );
+
+            const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+            if (!refreshTokenSecret)
+            {
+                console.error('REFRESH_TOKEN_SECRET not set');
+                return res.status(500).json({ error: 'Server Configuration Error'});
+            }
+
+            const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+
+            res.json
+            ({ 
+                accessToken: accessToken, 
+                refreshToken: refreshToken,
+                keyID: activeKeyID,
+                keyExpiresIn: keyData.expiresIn,
+                tokenExpiresIn: '30 seconds',
+                algorithm: 'HS256',
+                userId: user.id,
+                role: user.role
+            });
 
     } 
     catch (error) 
