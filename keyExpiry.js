@@ -502,55 +502,41 @@ app.post('/register',
                     }
                 );
             })
-            if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
-            {
-                console.error('Login failed: Active key is expired');
-                return res.status(500).json({ error: 'Key rotation in progress - please try again' });
-            }
 
-            const accessToken = jwt.sign
-            (
-                tokenUser,
-                aesKey,
-                {
-                    expiresIn: '30s',
-                    algorithm: 'HS256',
-                    header: 
-                    {
-                        kid: activeKeyID,
-                        alg: 'HS256'
-                    }
-                }
+            await authorization_logsDB.logAttempt(
+                username,
+                ipAddress,
+                req.headers['user-agent'],
+                true,
+                'User registered successfully'
             );
 
-            const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-            if (!refreshTokenSecret)
-            {
-                console.error('REFRESH_TOKEN_SECRET not set');
-                return res.status(500).json({ error: 'Server Configuration Error'});
-            }
-
-            const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
-
-            res.json
-            ({ 
-                accessToken: accessToken, 
-                refreshToken: refreshToken,
-                keyID: activeKeyID,
-                keyExpiresIn: keyData.expiresIn,
-                tokenExpiresIn: '30 seconds',
-                algorithm: 'HS256',
-                userId: user.id,
-                role: user.role
+            res.status(201).json({
+                message: 'User registered successfully',
+                user: {
+                    id: result,
+                    username: username,
+                    email: email,
+                    role: defaultRole,
+                    createdAt: createdAt
+                }
             });
-
-    } 
-    catch (error) 
-    {
-        console.error('Login error:', error);
-        res.status(500).json({ error:' Server Configuration error'})
-    };
-
+        } 
+        catch (error) 
+        {
+            console.error('Registration error:', error);
+            await authorization_logsDB.logAttempt(
+                username,
+                ipAddress,
+                req.headers['user-agent'],
+                false,
+                error.message
+            );
+            res.status(500).json({ 
+                error:' Server Configuration error',
+                message: 'An internal error occured, please try again later.'
+            });
+        }
 });
 
 /* *************************************************
