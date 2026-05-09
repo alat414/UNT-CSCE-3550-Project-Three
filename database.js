@@ -13,6 +13,7 @@ console.log(`Connecting to SQLite database at: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath);
 
+
 /** The following is a helper function to 
  * hash passwords in proper format
  * 
@@ -149,6 +150,23 @@ const userDB =
         db.get(`SELECT id, username, email, role, createdAt, lastLogin FROM users WHERE id = ? AND isActive = 1`, [id], callback);
     },
 
+    // Find user by email
+    findUserByEmail: (email, callback) => {
+        db.get(`SELECT * FROM users WHERE email = ? AND isActive = 1`, 
+            [email],
+            callback
+        ); 
+    },
+
+    createUserByEmail: (username, email, password, role = 'user', callback) => {
+        const createdAt = new Date().toISOString();
+
+        db.run(`INSERT INTO users (username, email, password_hash, role, createdAt)
+                VALUES (?, ?, ?, ?, ?)`,
+            [username, email, password_hash, role, createdAt],
+            callback
+        );
+    },
     // Create a new user
     createUser: (username, password, role = 'user', callback) => {
         const password_hash = hashPassword(password);
