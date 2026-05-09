@@ -40,10 +40,16 @@ db.serialize(() => {
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
+            email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            email TEXT UNIQUE,
-            date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP
+            role TEXT DEFAULT 'user',
+            isActive INTEGER DEFAULT 1,
+            createdAt TEXT NOT NULL,
+            last_login TEXT,
+            failedLoginAttempts INTEGER DEFAULT 0,
+            lockedUntil TEXT,
+            createdBy TEXT,
+            
         )`, (err) => 
         {
             if (err) 
