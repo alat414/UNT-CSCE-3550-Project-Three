@@ -425,9 +425,8 @@ app.post('/register',
     
     async (req, res) => 
     {
-        const { username, password } = req.body;
+        const { username, email,  password } = req.body;
         const ipAddress = req.ip || req.connection.remoteAddress;
-        const userAgent = req.headers['user-agent'];
 
         const errors = validationResult(req);
         if(!errors.isEmpty())
@@ -438,19 +437,6 @@ app.post('/register',
                 details: errors.array()
             });
         }
-
-        if (!username || !password)
-        {
-            return res.status(400).json({ error: 'Username and password is required '});
-        }
-
-
-        // Successful login - update last login and log success.
-        await userDB.updateLastLogin(username);
-        await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
-
-        console.log(`Authorized user: ${username}`);
-        const tokenUser = { name: username };
 
         try 
         {
@@ -497,7 +483,25 @@ app.post('/register',
             const { hashPassword } = require('./database');
             const passwordHash = hashPassword(password);
             const createdAt = new Date().toISOString();
-            ///////////////////////////////
+            const defaultRole = 'user';
+
+            const result = await new Promise((resolve, reject) => {
+                db.run(`INSERT INTO users (username, email, password_hash, role, createdAt, isActive)
+                    VALUES (?, ?, ?, ?, ?, ?)`,
+                    [username, email, passwordHash, defaultRole, createdAt, 1],
+                    function (err)
+                    {
+                        if(err)
+                        {
+                            reject(err);
+                        }
+                        else
+                        {
+                            resolve(this.lastID);
+                        }
+                    }
+                );
+            })
             if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
             {
                 console.error('Login failed: Active key is expired');
