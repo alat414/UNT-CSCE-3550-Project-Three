@@ -428,6 +428,26 @@ app.post('/register',
         const { username, email,  password } = req.body;
         const ipAddress = req.ip || req.connection.remoteAddress;
 
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await new Promise((resolve, reject) => 
+        {
+            db.run(`UPDATE users SET verificationToken = ?, verificationExpiry = ? WHERE username = ?`,
+                [verificationToken, tokenExpiry.toISOString(), username],
+                (err) => 
+                {
+                    if (err)
+                    {
+                        reject(err);
+                    }
+                    else
+                    {
+                        resolve();
+                    }
+                });
+        });
+
         const errors = validationResult(req);
         if(!errors.isEmpty())
         {
