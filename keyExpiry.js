@@ -298,9 +298,9 @@ app.post('/login',
         }
 
         // Verify the password
-        const hashPassword = require('./database').hashPassword;
+        const hashedInputPassword = hashPasswordSHA256(password);
     
-        if (hashPassword(password) !== user.password_hash)
+        if (hashedInputPassword !== user.password_hash)
         {
             await userDB.recordFailedLogin(username);
             await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'Invalid password');
