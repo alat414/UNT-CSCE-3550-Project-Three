@@ -517,8 +517,8 @@ app.post('/register',
                 return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
             }
 
-            const generatedPassword = uuid4();
-
+            const generatedPassword = uuid4().replace(/-/g, '');
+            const hashedPassword = hashPasswordSHA256(generatedPassword);
             const { hashPassword } = require('./database');
             const passwordHash = hashPassword(password);
 
@@ -528,7 +528,7 @@ app.post('/register',
             const result = await new Promise((resolve, reject) => {
                 db.run(`INSERT INTO users (username, email, password_hash, role, createdAt, isActive)
                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [username, email, passwordHash, defaultRole, createdAt, 1],
+                    [username, email, hashedPassword, defaultRole, createdAt, 1],
                     function (err)
                     {
                         if(err)
