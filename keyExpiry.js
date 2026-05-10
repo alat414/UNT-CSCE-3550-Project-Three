@@ -500,8 +500,11 @@ app.post('/register',
                 return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
             }
 
+            const generatedPassword = uuid4();
+
             const { hashPassword } = require('./database');
             const passwordHash = hashPassword(password);
+
             const createdAt = new Date().toISOString();
             const defaultRole = 'user';
 
@@ -523,14 +526,17 @@ app.post('/register',
                 );
             })
 
-            await authorization_logsDB.logAttempt(
-                username,
-                ipAddress,
-                req.headers['user-agent'],
-                true,
-                'User registered successfully'
-            );
-
+            if (authorization_logsDB && authorization_logsDB.logAttempt)
+            {
+                await authorization_logsDB.logAttempt(
+                    username,
+                    ipAddress,
+                    req.headers['user-agent'],
+                    true,
+                    'User registered successfully with auto-generated password'
+                );
+            }
+            
             res.status(201).json({
                 message: 'User registered successfully',
                 user: {
@@ -539,7 +545,10 @@ app.post('/register',
                     email: email,
                     role: defaultRole,
                     createdAt: createdAt
-                }
+                },
+
+                generatedPassword: generatedPassword,
+                note: 'Please save this password, it will not be displayed again.'
             });
         } 
         catch (error) 
