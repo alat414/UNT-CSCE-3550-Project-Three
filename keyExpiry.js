@@ -7,6 +7,7 @@
 // Authenticate User
 require('dotenv').config()
 
+const crypto = require('crypto');
 const express = require('express');
 
 const jwt = require('jsonwebtoken')
@@ -18,6 +19,7 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 const { db } = require('./database');
+const { v4: uuid4} = require('uuid');
 
 // Valid Users declared.
 const VALID_USERS = ['Nanna', 'nanna', 'Raggi', 'raggi'];
@@ -106,6 +108,20 @@ async function startServer()
         serverStarted = true;
     }
 }
+
+/** *************************************************************
+ * This function hashes the generated UUID v4 password using the
+ * SHA-256 algorithm. 
+ * 
+ * @param password : auto-generated 
+ * @return: hashed password
+ * @note: na
+ **************************************************************/
+function hashPasswordSHA256(password)
+{
+    return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 /* *************************************************
 * This function calls the JWKS endpoint. 
 * Only includes active keys, not expired ones. 
@@ -375,7 +391,8 @@ app.post('/login',
 
 /****************************************************
 * This endpoint creates a new user account with 
-* username, email, and password.
+* username, email, and auto-generated password;
+* then is hashed using SHA-256 algorithm and stored.
 
 * @param req : request with registration info
 * @param res : response with user details or error
