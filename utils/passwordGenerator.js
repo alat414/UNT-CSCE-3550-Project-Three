@@ -10,7 +10,7 @@
 const crypto = require('crypto');
 const { v4: uuid4} = require('uuid');
 
-class passwordGenerator
+class PasswordGenerator
 {
     static uuidOnly(removeHyphens = true)
     {
@@ -28,9 +28,16 @@ class passwordGenerator
         const bytes = crypto.randomBytes(32);
         return bytes.toString('hex');
     }
-    static uuidOnly(removeHyphens = true)
+    static readable()
     {
-        const pwd = uuid4();
-        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890';
+        let password = '';
+        for (let i = 0; i < 24; i++)
+        {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
     }
 }
+
+module.exports = PasswordGenerator;
