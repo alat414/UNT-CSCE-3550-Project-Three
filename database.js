@@ -7,12 +7,12 @@
 // database.js - Simplified working version
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const crypto = require('crypto');
 
 const dbPath = path.join(__dirname, 'jwks-server.db');
 console.log(`Connecting to SQLite database at: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath);
-
 
 /** The following is a helper function to 
  * hash passwords in proper format
@@ -26,139 +26,162 @@ function hashPassword(password)
     return crypto.createHast('sha256').update(password).digest('hex');
 }
 
-// Create table immediately
+// Create all tables
 db.serialize(() => {
-    //Remove any existing tables.
-    db.run(`DROP TABLE IF EXISTS users`, (err) => {
-        if (err) 
-        {
-            console.error('Error dropping table:', err.message);
-        }
-        else
-        {
-            console.log('Previous table removed');
-        }
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            role TEXT DEFAULT 'user',
-            isActive INTEGER DEFAULT 1,
-            createdAt TEXT NOT NULL,
-            last_login TEXT,
-            failedLoginAttempts INTEGER DEFAULT 0,
-            lockedUntil TEXT,
-            createdBy TEXT,
-            
-        )`, (err) => 
-        {
-            if (err) 
-            {
-                console.error('Error creating table:', err.message);
-                process.exit(1);
-            } 
-            else 
-            {
-                console.log('AES keys table created successfully ');
+    
+    // =====================================================
+    // 1. KEYS TABLE - For AES encryption keys
+    // =====================================================
+    db.run(`DROP TABLE IF EXISTS keys`);
 
-                const defaultUsers = 
-                [
-                    {
-                        username: 'Nanna',
-                        password: 'LittleTalks123',
-                        role: 'admin',
-                    },
-                    {
-                        username: 'Raggi',
-                        password: 'MountainSound098',
-                        role: 'user'
-                    }
-                ];
-
-                defaultUsers.forEach(user =>
-                {
-                    db.run(`INSERT OR IGNORE INTO users (username, password, role, createdAt)
-                            VALUES (?, ?, ?, ?)`,
-                        [user.username, hashPassword(user.password), user.role, new Date().toISOString()],
-                        (err) => 
-                        {
-                            if (err)
-                            {
-                                console.error(`Error creating default user ${user.username}:`, err.message);
-                            }
-                            else
-                            {
-                                console.log(`Default user '${user.username}' created`);
-                            }
-                        });
-                });
-            }
-        });
-    });
-
-    db.run(`CREATE TABLE IF NOT EXISTS authorization_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        request_ip TEXT NOT NULL
-        request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        user_id INTEGER, 
-        FOREIGN KEY(user_id) REFERENCES users(id)
+    db.run(`CREATE TABLE IF NOT EXISTS keys (
+        kid TEXT PRIMARY KEY,           // Key ID (e.g., "aes-1747123456789-abc123")
+        secretKey TEXT NOT NULL,        // AES-256 key stored as base64
+        createdAt TEXT NOT NULL,        // ISO timestamp when key was created
+        expiresIn TEXT NOT NULL,        // ISO timestamp when key expires
+        isActive INTEGER NOT NULL DEFAULT 1  // 1 = active, 0 = inactive/expired
     )`, (err) => 
     {
-        if (err)
+        if (err) 
         {
-            console.error('Error creating authorization_logs tables', err.message);
-        }
-        else
-        {
-            console.log('Authorization logs table created successfully');
+            console.error('Error creating keys table:', err.message);
         } 
+        else 
+        {
+            console.log('Keys table created successfully (AES-256 storage)');
+        }
     });
 
+    // =====================================================
+    // 2. USERS TABLE - For user accounts and authentication
+    // =====================================================
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,    // SHA-256 hashed password
+        role TEXT DEFAULT 'user',       // 'user' or 'admin'
+        isActive INTEGER DEFAULT 1,     // 1 = active, 0 = disabled
+        createdAt TEXT NOT NULL,
+        lastLogin TEXT,
+        failedLoginAttempts INTEGER DEFAULT 0,
+        lockedUntil TEXT,
+        createdBy TEXT
+    )`, (err) => 
+    {
+        if (err) 
+        {
+            console.error('Error creating users table:', err.message);
+        } 
+        else 
+        {
+            console.log('Users table created successfully');
+            
+            // Insert default users
+            const defaultUsers = 
+            [
+                { username: 'Nanna', password: 'Nanna123!', email: 'nanna@ofmonstersandmen.com', role: 'admin' },
+                { username: 'Raggi', password: 'Raggi123!', email: 'raggi@ofmonstersandmen.com', role: 'user' }
+            ];
+            
+            defaultUsers.forEach(user => 
+            {
+                const passwordHash = hashPassword(user.password);
+                const createdAt = new Date().toISOString();
+                
+                db.run(`INSERT OR IGNORE INTO users (username, email, password_hash, role, createdAt)
+                        VALUES (?, ?, ?, ?, ?)`,
+                    [user.username, user.email, passwordHash, user.role, createdAt],
+                    (err) => 
+                    {
+                        if (err) 
+                        {
+                            console.error(`Error creating default user ${user.username}:`, err.message);
+                        } 
+                        else 
+                        {
+                            console.log(`Default user '${user.username}' created (role: ${user.role})`);
+                        }
+                    }
+                );
+            });
+        }
+    });
+
+    // =====================================================
+    // 3. AUTH LOGS TABLE - Track authentication attempts
+    // =====================================================
+    db.run(`CREATE TABLE IF NOT EXISTS auth_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        ipAddress TEXT,
+        userAgent TEXT,
+        success INTEGER DEFAULT 0,      // 1 = success, 0 = failure
+        failureReason TEXT,
+        timestamp TEXT NOT NULL
+    )`, (err) => 
+    {
+        if (err) 
+        {
+            console.error('Error creating auth_logs table:', err.message);
+        } 
+        else 
+        {
+            console.log('Auth logs table created successfully');
+        }
+    });
+
+    // =====================================================
+    // 4. TOKENS TABLE - Track issued tokens (optional)
+    // =====================================================
     db.run(`CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tokenID TEXT UNIQUE NOT NULL,
-        userID INTEGER NOT NULL,
-        tokenType TEXT NOT NULL,
+        tokenId TEXT UNIQUE NOT NULL,
+        userId INTEGER NOT NULL,
+        tokenType TEXT NOT NULL,        // 'access' or 'refresh'
         issuedAt TEXT NOT NULL,
         expiresAt TEXT NOT NULL,
         revoked INTEGER DEFAULT 0,
         revokedAt TEXT,
-        FOREIGN KEY(user_id) REFERENCES users(id)
+        FOREIGN KEY (userId) REFERENCES users(id)
     )`, (err) => 
     {
-        if (err)
+        if (err) 
         {
-            console.error('Error creating tokens tables', err.message);
-        }
-        else
+            console.error('Error creating tokens table:', err.message);
+        } 
+        else 
         {
             console.log('Tokens table created successfully');
-        } 
+        }
     });
 });
 
 const userDB = 
 {
     // Find user by username
-    findUserByUsername: (username, callback) => {
+    findUserByUsername: (username, callback) => 
+    {
         db.get(`SELECT * FROM users WHERE username = ? AND isActive = 1`, [username], callback);
     },
 
     // Find user by ID
-    findUserByID: (id, callback) => {
+    findUserByID: (id, callback) =>
+    {
         db.get(`SELECT id, username, email, role, createdAt, lastLogin FROM users WHERE id = ? AND isActive = 1`, [id], callback);
     },
 
     // Find user by email
-    findUserByEmail: (email, callback) => {
+    findUserByEmail: (email, callback) => 
+    {
         db.get(`SELECT * FROM users WHERE email = ? AND isActive = 1`, 
             [email],
             callback
         ); 
     },
 
-    createUserByEmail: (username, email, password, role = 'user', callback) => {
+    createUserByEmail: (username, email, password, role = 'user', callback) => 
+    {
         const createdAt = new Date().toISOString();
 
         db.run(`INSERT INTO users (username, email, password_hash, role, createdAt)
@@ -168,7 +191,8 @@ const userDB =
         );
     },
     // Create a new user
-    createUser: (username, password, role = 'user', callback) => {
+    createUser: (username, password, role = 'user', callback) => 
+    {
         const password_hash = hashPassword(password);
         const createdAt = new Date().toISOString();
 
@@ -180,7 +204,8 @@ const userDB =
     },
 
     // Update last login time
-    UpdateLastLogin: (username, callback) => {
+    UpdateLastLogin: (username, callback) => 
+    {
         const lastLogin = new Date().toISOString();
 
         db.run(`UPDATE users SET lastLogin = ?, failedLoginAttempts = 0 WHERE username = ?`,
@@ -190,7 +215,8 @@ const userDB =
     },
 
     // Record failed login attempt              
-    recordFailedLogin: (username, callback) => {
+    recordFailedLogin: (username, callback) => 
+    {
         const lastLogin = new Date().toISOString();
 
         db.run(`UPDATE users SET failedLoginAttempts = failedLoginAttempts + 1 WHERE username = ?`,
@@ -200,7 +226,8 @@ const userDB =
     },
 
     // Lock user account after too many failed attempts              
-    lockUserAccount: (username, callback) => {
+    lockUserAccount: (username, callback) => 
+    {
         const lockedUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
 
         db.run(`UPDATE users SET lockedUntil = ? WHERE username = ?`,
@@ -215,7 +242,8 @@ const userDB =
 const authorization_logsDB = 
 {
     // Login autnetication attempt
-    logAttempt: (username, ipAddress, userAgent, success, failure = null, callback) => {
+    logAttempt: (username, ipAddress, userAgent, success, failure = null, callback) => 
+    {
         const timestamp = new Date().toISOString();
         db.run(`INSERT INTO auth_logs (username, ipAddress, userAgent, success, failureReason, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)`, 
