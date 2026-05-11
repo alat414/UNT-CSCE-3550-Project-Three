@@ -17,15 +17,16 @@ class passwordGenerator
         const pwd = uuid4();
         return removeHyphens ? pwd.replace(/-/g, '') : pwd;
     }
-    static uuidOnly(removeHyphens = true)
+    static enhanced()
     {
-        const pwd = uuid4();
-        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+        const uuidPart = uuid4().replace(/-/g, '');
+        const randomPart = crypto.randomBytes(8).toString('hex');
+        return `${uuidPart}${randomPart}`;
     }
-    static uuidOnly(removeHyphens = true)
+    static highEntropy()
     {
-        const pwd = uuid4();
-        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+        const bytes = crypto.randomBytes(32);
+        return bytes.toString('hex');
     }
     static uuidOnly(removeHyphens = true)
     {
