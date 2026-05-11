@@ -14,6 +14,7 @@ const jwt = require('jsonwebtoken')
 const keyStorage = require('./keyStorage');
 const { authenticateToken, getUserPosts } = require('./app.js')
 const { userDB, authorization_logsDB } = require('./database');
+const { hashPasswordSHA256, generateSecuredPassword, verifyPassword } = require('./utils/crypto');
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -258,136 +259,137 @@ app.post('/login',
     }),
     
     async (req, res) => 
-{
-    const { username, password } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'];
-
-    const errors = validationResult(req);
-
-    if(!errors.isEmpty())
     {
-        return res.status(400).json
-        ({
-            errors: errors.array()
-        });
-    }
+        const { username, password } = req.body;
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.headers['user-agent'];
 
-    if (!username || !password)
-    {
-        return res.status(400).json({ error: 'Username and password is required '});
-    }
+        const errors = validationResult(req);
 
-    // Check if the user exists in the DB.
-    userDB.findUserByUsername(username, async (err, user) => 
-    {
-        if (err || !user) 
+        if(!errors.isEmpty())
         {
-            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'User not found');
-            return res.status(401).json({ error: 'Invalid credentials'});
-        }
-
-        // Check if the account is locked.
-        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) 
-        {
-            return res.status(401).json
-            ({ 
-                error: 'Account locked',
-                message: `Too many failed attempts. Try again after ${new Date(user.lockedUntil).toLocaleTimeString()}`
-            });
-        }
-
-        // Verify the password
-        const hashedInputPassword = hashPasswordSHA256(password);
-    
-        if (hashedInputPassword !== user.password_hash)
-        {
-            await userDB.recordFailedLogin(username);
-            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'Invalid password');
-
-            const failedAttempts = (user.failedLoginAttempts || 0) + 1;
-            if (failedAttempts >= 5)
-            {
-                await userDB.lockUserAccount(username, 15);
-            }
-
-            return res.status(401).json
+            return res.status(400).json
             ({
-                error: 'Invalid credentials'
-            
+                errors: errors.array()
             });
         }
 
-        // Successful login - update last login and log success.
-        await userDB.updateLastLogin(username);
-        await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
-
-        console.log(`Authorized user: ${username}`);
-        const tokenUser = { name: username };
-
-        try 
+        if (!username || !password)
         {
-            const aesKey = await keyStorage.getCurrentKey();
-            const activeKeyID = keyStorage.getCurrentKeyID();
-            
-            if(!aesKey || !activeKeyID)
+            return res.status(400).json({ error: 'Username and password is required '});
+        }
+
+        // Check if the user exists in the DB.
+        userDB.findUserByUsername(username, async (err, user) => 
+        {
+            if (err || !user) 
             {
-                console.error('Login failed: No active key available');
-                return res.status(500).json({ error: 'Server configuration error - No key available' });
+                await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'User not found');
+                return res.status(401).json({ error: 'Invalid credentials'});
             }
 
-            const keyData = await keyStorage.getKeyData(activeKeyID);
-            if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+            // Check if the account is locked.
+            if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) 
             {
-                console.error('Login failed: Active key is expired');
-                return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+                return res.status(401).json
+                ({ 
+                    error: 'Account locked',
+                    message: `Too many failed attempts. Try again after ${new Date(user.lockedUntil).toLocaleTimeString()}`
+                });
             }
 
-            const accessToken = jwt.sign
-            (
-                tokenUser,
-                aesKey,
+            // Verify the password
+            const hashedInputPassword = hashPasswordSHA256(password);
+        
+            if (hashedInputPassword !== user.password_hash)
+            {
+                await userDB.recordFailedLogin(username);
+                await authorization_logsDB.logAttempt(username, ipAddress, userAgent, false, 'Invalid password');
+
+                const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+                if (failedAttempts >= 5)
                 {
-                    expiresIn: '30s',
-                    algorithm: 'HS256',
-                    header: 
-                    {
-                        kid: activeKeyID,
-                        alg: 'HS256'
-                    }
+                    await userDB.lockUserAccount(username, 15);
                 }
-            );
 
-            const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
-            if (!refreshTokenSecret)
-            {
-                console.error('REFRESH_TOKEN_SECRET not set');
-                return res.status(500).json({ error: 'Server Configuration Error'});
+                return res.status(401).json
+                ({
+                    error: 'Invalid credentials'
+                
+                });
             }
 
-            const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+            // Successful login - update last login and log success.
+            await userDB.updateLastLogin(username);
+            await authorization_logsDB.logAttempt(username, ipAddress, userAgent, true);
 
-            res.json
-            ({ 
-                accessToken: accessToken, 
-                refreshToken: refreshToken,
-                keyID: activeKeyID,
-                keyExpiresIn: keyData.expiresIn,
-                tokenExpiresIn: '30 seconds',
-                algorithm: 'HS256',
-                userId: user.id,
-                role: user.role
-            });
+            console.log(`Authorized user: ${username}`);
+            const tokenUser = { name: username };
 
-        } 
-        catch (error) 
-        {
-            console.error('Login error:', error);
-            res.status(500).json({ error:' Server Configuration error'})
-        };
+            try 
+            {
+                const aesKey = await keyStorage.getCurrentKey();
+                const activeKeyID = keyStorage.getCurrentKeyID();
+                
+                if(!aesKey || !activeKeyID)
+                {
+                    console.error('Login failed: No active key available');
+                    return res.status(500).json({ error: 'Server configuration error - No key available' });
+                }
 
-    })
-});
+                const keyData = await keyStorage.getKeyData(activeKeyID);
+                if(!keyData || !keyData.isActive || new Date() > new Date(keyData.expiresIn))
+                {
+                    console.error('Login failed: Active key is expired');
+                    return res.status(500).json({ error: 'Key rotation in progress - please try again' });
+                }
+
+                const accessToken = jwt.sign
+                (
+                    tokenUser,
+                    aesKey,
+                    {
+                        expiresIn: '30s',
+                        algorithm: 'HS256',
+                        header: 
+                        {
+                            kid: activeKeyID,
+                            alg: 'HS256'
+                        }
+                    }
+                );
+
+                const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+                if (!refreshTokenSecret)
+                {
+                    console.error('REFRESH_TOKEN_SECRET not set');
+                    return res.status(500).json({ error: 'Server Configuration Error'});
+                }
+
+                const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+
+                res.json
+                ({ 
+                    accessToken: accessToken, 
+                    refreshToken: refreshToken,
+                    keyID: activeKeyID,
+                    keyExpiresIn: keyData.expiresIn,
+                    tokenExpiresIn: '30 seconds',
+                    algorithm: 'HS256',
+                    userId: user.id,
+                    role: user.role
+                });
+
+            } 
+            catch (error) 
+            {
+                console.error('Login error:', error);
+                res.status(500).json({ error:' Server Configuration error'})
+            };
+
+        })
+    }
+);
 
 /****************************************************
 * This endpoint creates a new user account with 
@@ -517,7 +519,7 @@ app.post('/register',
                 return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
             }
 
-            const generatedPassword = uuid4().replace(/-/g, '');
+            const generatedPassword = generateSecuredPassword(true);
             const hashedPassword = hashPasswordSHA256(generatedPassword);
             const { hashPassword } = require('./database');
             const passwordHash = hashPassword(password);
@@ -565,6 +567,7 @@ app.post('/register',
                 },
 
                 generatedPassword: generatedPassword,
+                hashingAlgorithm: 'SHA-256',
                 note: 'Please save this password, it will not be displayed again.'
             });
         } 
