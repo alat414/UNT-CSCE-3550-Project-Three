@@ -17,4 +17,19 @@ class passwordGenerator
         const pwd = uuid4();
         return removeHyphens ? pwd.replace(/-/g, '') : pwd;
     }
+    static uuidOnly(removeHyphens = true)
+    {
+        const pwd = uuid4();
+        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+    }
+    static uuidOnly(removeHyphens = true)
+    {
+        const pwd = uuid4();
+        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+    }
+    static uuidOnly(removeHyphens = true)
+    {
+        const pwd = uuid4();
+        return removeHyphens ? pwd.replace(/-/g, '') : pwd;
+    }
 }
