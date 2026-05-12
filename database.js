@@ -338,4 +338,4 @@ process.on('SIGINT', () => {
     db.close();
 });
 
-module.exports = {db, onTableReady: (cb) => cb() };
+module.exports = {db, userDB, authorization_logsDB, tokenDB, hashPassword };
