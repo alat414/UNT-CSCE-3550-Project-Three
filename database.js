@@ -180,7 +180,7 @@ const userDB =
         ); 
     },
 
-    createUserByEmail: (username, email, password, role = 'user', callback) => 
+    createUserByEmail: (username, email, password_hash, role = 'user', callback) => 
     {
         const createdAt = new Date().toISOString();
 
@@ -191,7 +191,7 @@ const userDB =
         );
     },
     // Create a new user
-    createUser: (username, password, role = 'user', callback) => 
+    createUser: (username, password_hash, role = 'user', callback) => 
     {
         const password_hash = hashPassword(password);
         const createdAt = new Date().toISOString();
@@ -313,6 +313,17 @@ const tokenDB =
         db.get(`SELECT 1 FROM tokens WHERE tokenID = ? AND revoked = 0 AND expiresAt > ?`
                 [tokenID, now], 
                 (err, row) => callback(err, !!row));
+    },
+
+    // Revoke all tokens for a user.
+    revokeAllUserTokens: (userID, callback) => 
+    {
+        const revokedAt = new Date().toISOString();
+
+        db.run(`UPDATE tokens SET revoked = 1. revokedAt = ? WHERE userID = ? AND revoked = 0`,
+                [revokedAt, userID], 
+                callback
+            );
     }
 };
 
