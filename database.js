@@ -236,13 +236,23 @@ const userDB =
         );
     },
 
+    // Obtain the user's failed attempt count.           
+    getFailedAttempts: (username, callback) => 
+    {
+        db.get(`SELECT failedLoginAttempts FROM users WHERE username = ?`,
+            [username],
+            callback
+        );
+    },
+
+
 }
 
 // Helper functions for logins to database
 const authorization_logsDB = 
 {
     // Login autnetication attempt
-    logAttempt: (username, ipAddress, userAgent, success, failure = null, callback) => 
+    logAttempt: (username, ipAddress, userAgent, success, failureReason = null, callback) => 
     {
         const timestamp = new Date().toISOString();
         db.run(`INSERT INTO auth_logs (username, ipAddress, userAgent, success, failureReason, timestamp)
