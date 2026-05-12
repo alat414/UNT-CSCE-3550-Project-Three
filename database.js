@@ -269,6 +269,16 @@ const authorization_logsDB =
             [username, since],
             callback
         );
+    },
+
+    // Get login history for user. 
+    getLoginHistory: (username, limit = 10, callback) => 
+    {
+        db.all(`SELECT timestamp, success, ipAddress, failureReason FROM auth_logs WHERE username = ?
+            ORDER BY timestamp DESC LIMIT`,
+            [username, since],
+            callback
+        );
     }
 }
 
