@@ -62,7 +62,7 @@ function authenticateToken(req, res, next)
         });
     }
 
-    if (!token || !authHeader.startsWith('Bearer')) 
+    if (!authHeader || !authHeader.startsWith('Bearer')) 
     {
         console.log('Authentication failed: Invalid Authorization header format');
         return res.status(401).json
