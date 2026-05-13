@@ -23,7 +23,7 @@ const db = new sqlite3.Database(dbPath);
  */
 function hashPassword(password)
 {
-    return crypto.createHast('sha256').update(password).digest('hex');
+    return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 // Create all tables
@@ -166,7 +166,7 @@ const userDB =
     },
 
     // Find user by ID
-    findUserByID: (id, callback) =>
+    findUserById: (id, callback) =>
     {
         db.get(`SELECT id, username, email, role, createdAt, lastLogin FROM users WHERE id = ? AND isActive = 1`, [id], callback);
     },
@@ -191,20 +191,20 @@ const userDB =
         );
     },
     // Create a new user
-    createUser: (username, password_hash, role = 'user', callback) => 
+    createUser: (username, password, role = 'user', callback) => 
     {
-        const password_hash = hashPassword(password);
+        const passwordHash = hashPassword(password);
         const createdAt = new Date().toISOString();
 
         db.run(`INSERT INTO users (username, password_hash, role, createdAt)
                 VALUES (?, ?, ?, ?)`,
-            [username, password_hash, role, createdAt],
+            [username, passwordHash, role, createdAt],
             callback
         );
     },
 
     // Update last login time
-    UpdateLastLogin: (username, callback) => 
+    updateLastLogin: (username, callback) => 
     {
         const lastLogin = new Date().toISOString();
 
@@ -226,8 +226,8 @@ const userDB =
     },
 
     // Lock user account after too many failed attempts              
-    lockUserAccount: (username, callback) => 
-    {
+    lockUserAccount: (username, durationMinutes = 15, callback) => 
+    {   
         const lockedUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
 
         db.run(`UPDATE users SET lockedUntil = ? WHERE username = ?`,
@@ -276,7 +276,7 @@ const authorization_logsDB =
     {
         db.all(`SELECT timestamp, success, ipAddress, failureReason FROM auth_logs WHERE username = ?
             ORDER BY timestamp DESC LIMIT`,
-            [username, since],
+            [username, limit],
             callback
         );
     }
@@ -286,42 +286,42 @@ const authorization_logsDB =
 const tokenDB = 
 {
     // Store issued token
-    storeToken: (tokenID, userID, tokenType, expiresInSeconds, callback) => 
+    storeToken: (tokenId, userId, tokenType, expiresInSeconds, callback) => 
     {
         const issuedAt = new Date().toISOString();
         const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
-        db.run(`INSERT INTO tokens (tokenID, userID, tokenType, issuedAt, expiresAt)
-                VALUES (?, ?, ?, ?, ?, ?)`, 
-                [tokenID, userID, tokenType, issuedAt, expiresAt], callback);
+        db.run(`INSERT INTO tokens (tokenId, userId, tokenType, issuedAt, expiresAt)
+                VALUES (?, ?, ?, ?, ?)`, 
+                [tokenId, userId, tokenType, issuedAt, expiresAt], callback);
     },
 
     // Revoke a token
-    revokeToken: (tokenID, callback) => 
+    revokeToken: (tokenId, callback) => 
     {
         const revokedAt = new Date().toISOString();
 
-        db.run(`UPDATE tokens SET revoked = 1, revokedAt = ? WHERE tokenID = ?` 
-                [revokedAt, tokenID], callback);
+        db.run(`UPDATE tokens SET revoked = 1, revokedAt = ? WHERE tokenId = ?`, 
+                [revokedAt, tokenId], callback);
     },
 
     // Check if the token is valid
-    isTokenValid: (tokenID, callback) => 
+    isTokenValid: (tokenId, callback) => 
     {
         const now = new Date().toISOString();
 
-        db.get(`SELECT 1 FROM tokens WHERE tokenID = ? AND revoked = 0 AND expiresAt > ?`
-                [tokenID, now], 
+        db.get(`SELECT 1 FROM tokens WHERE tokenId = ? AND revoked = 0 AND expiresAt > ?`
+                [tokenId, now], 
                 (err, row) => callback(err, !!row));
     },
 
     // Revoke all tokens for a user.
-    revokeAllUserTokens: (userID, callback) => 
+    revokeAllUserTokens: (userId, callback) => 
     {
         const revokedAt = new Date().toISOString();
 
-        db.run(`UPDATE tokens SET revoked = 1. revokedAt = ? WHERE userID = ? AND revoked = 0`,
-                [revokedAt, userID], 
+        db.run(`UPDATE tokens SET revoked = 1. revokedAt = ? WHERE userId = ? AND revoked = 0`,
+                [revokedAt, userId], 
                 callback
             );
     }
