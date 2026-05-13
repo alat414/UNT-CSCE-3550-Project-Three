@@ -20,21 +20,14 @@ const app = express();
 const port = process.env.PORT || 8080;
 
 const { db } = require('./database');
-const { v4: uuid4} = require('uuid');
+const { v4: uuidv4} = require('uuid');
 
 // Valid Users declared.
 const VALID_USERS = ['Nanna', 'nanna', 'Raggi', 'raggi'];
 
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 10,
-    message: { error: 'Too many login attempts, please try again later'},
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true, 
-});
+
 
 const validatePasswordStrength = (password) => {
     const errors = [];
@@ -353,7 +346,7 @@ app.post('/login',
                     return res.status(500).json({ error: 'Server Configuration Error'});
                 }
 
-                const refreshToken = jwt.sign(user, refreshTokenSecret, {expiresIn: '7d'});
+                const refreshToken = jwt.sign(tokenUser, refreshTokenSecret, {expiresIn: '7d'});
 
                 res.json
                 ({ 
@@ -431,7 +424,7 @@ app.post('/register',
     
     async (req, res) => 
     {
-        const { username, email,  password } = req.body;
+        const { username, email } = req.body;
         const ipAddress = req.ip || req.connection.remoteAddress;
 
         const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -466,7 +459,7 @@ app.post('/register',
 
         try 
         {
-            const existingUser = await Promise((resolve, reject) => 
+            const existingUser = await new Promise((resolve, reject) => 
             {
                 userDB.findUserByUsername(username, (err, user) => 
                 {
@@ -483,7 +476,7 @@ app.post('/register',
             
             if(existingUser)
             {
-                return res.status(400).json({ error: 'Username', message: 'Please choose another username' });
+                return res.status(409).json({ error: 'Username', message: 'Please choose another username' });
             }
 
             const existingEmail = await Promise((resolve, reject) => 
@@ -503,13 +496,11 @@ app.post('/register',
             
             if(existingEmail)
             {
-                return res.status(400).json({ error: 'Email used', message: 'Please choose another email address' });
+                return res.status(409).json({ error: 'Email used', message: 'Please choose another email address' });
             }
 
             const generatedPassword = generateSecuredPassword(true);
             const hashedPassword = hashPasswordSHA256(generatedPassword);
-            const { hashPassword } = require('./database');
-            const passwordHash = hashPassword(password);
 
             const createdAt = new Date().toISOString();
             const defaultRole = 'user';
