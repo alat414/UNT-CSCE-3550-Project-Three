@@ -7,52 +7,45 @@
 // Authenticate User
 require('dotenv').config();
 
+// =====================================================
+// IMPORTS
+// =====================================================
 const crypto = require('crypto');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
-const { v4: uuidv4 } = require('uuid');  // Note: v4, not uuid4
+const { v4: uuidv4 } = require('uuid');
 
 const keyStorage = require('./keyStorage');
 const { authenticateToken, getUserPosts } = require('./app');
 const { userDB, authorization_logsDB } = require('./database');
 const { hashPasswordSHA256, generateSecuredPassword, verifyPassword } = require('./utils/crypto');
 
-// Valid Users declared.
-const VALID_USERS = ['Nanna', 'nanna', 'Raggi', 'raggi'];
+// =====================================================
+// EXPRESS APP INITIALIZATION
+// =====================================================
+const app = express();
+const port = process.env.PORT || 8080;
 
-const validatePasswordStrength = (password) => {
-    const errors = [];
+// =====================================================
+// MIDDLEWARE & RATE LIMITERS
+// =====================================================
+app.use(express.json());
 
-    if (password.length < 8)
-    {
-        errors.push('Password must be at least 8 characters long');
-    }
-
-    if (!/[A-Z]/.test(password))
-    {
-        errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/[a-z]/.test(password))
-    {
-        errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/[0-9]/.test(password))
-    {
-        errors.push('Password must contain at least one digit');
-    }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password))
-    {
-        errors.push('Password must contain at least one special character');
-    }
-
-    return errors;
-}
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many login attempts, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+});
 
 app.use('/api/', limiter);
 
-app.use(express.json())
+// Valid Users (optional, since using database)
+const VALID_USERS = ['Nanna', 'nanna', 'Raggi', 'raggi'];
 
 let serverStarted = false;
 
