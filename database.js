@@ -35,11 +35,11 @@ db.serialize(() => {
     db.run(`DROP TABLE IF EXISTS keys`);
 
     db.run(`CREATE TABLE IF NOT EXISTS keys (
-        kid TEXT PRIMARY KEY,           // Key ID (e.g., "aes-1747123456789-abc123")
-        secretKey TEXT NOT NULL,        // AES-256 key stored as base64
-        createdAt TEXT NOT NULL,        // ISO timestamp when key was created
-        expiresIn TEXT NOT NULL,        // ISO timestamp when key expires
-        isActive INTEGER NOT NULL DEFAULT 1  // 1 = active, 0 = inactive/expired
+        kid TEXT PRIMARY KEY,           -- Key ID (e.g., "aes-1747123456789-abc123")
+        secretKey TEXT NOT NULL,        -- AES-256 key stored as base64
+        createdAt TEXT NOT NULL,        -- ISO timestamp when key was created
+        expiresIn TEXT NOT NULL,        -- ISO timestamp when key expires
+        isActive INTEGER NOT NULL DEFAULT 1  -- 1 = active, 0 = inactive/expired
     )`, (err) => 
     {
         if (err) 
@@ -59,9 +59,9 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
         email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,    // SHA-256 hashed password
-        role TEXT DEFAULT 'user',       // 'user' or 'admin'
-        isActive INTEGER DEFAULT 1,     // 1 = active, 0 = disabled
+        password_hash TEXT NOT NULL,    -- SHA-256 hashed password
+        role TEXT DEFAULT 'user',       -- 'user' or 'admin'
+        isActive INTEGER DEFAULT 1,     -- 1 = active, 0 = disabled
         createdAt TEXT NOT NULL,
         lastLogin TEXT,
         failedLoginAttempts INTEGER DEFAULT 0,
@@ -116,7 +116,7 @@ db.serialize(() => {
         username TEXT NOT NULL,
         ipAddress TEXT,
         userAgent TEXT,
-        success INTEGER DEFAULT 0,      // 1 = success, 0 = failure
+        success INTEGER DEFAULT 0,      -- 1 = success, 0 = failure
         failureReason TEXT,
         timestamp TEXT NOT NULL
     )`, (err) => 
@@ -138,7 +138,7 @@ db.serialize(() => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tokenId TEXT UNIQUE NOT NULL,
         userId INTEGER NOT NULL,
-        tokenType TEXT NOT NULL,        // 'access' or 'refresh'
+        tokenType TEXT NOT NULL,        -- 'access' or 'refresh'
         issuedAt TEXT NOT NULL,
         expiresAt TEXT NOT NULL,
         revoked INTEGER DEFAULT 0,
