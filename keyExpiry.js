@@ -110,18 +110,6 @@ async function startServer()
     }
 }
 
-/** *************************************************************
- * This function hashes the generated UUID v4 password using the
- * SHA-256 algorithm. 
- * 
- * @param password : auto-generated 
- * @return: hashed password
- * @note: na
- **************************************************************/
-function hashPasswordSHA256(password)
-{
-    return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 /* *************************************************
 * This function calls the JWKS endpoint. 
