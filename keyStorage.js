@@ -6,7 +6,7 @@
 ************************************************* */
 const crypto = require('crypto');
 const { promisify } = require('util');
-const { db, onTableReady } = require('./database');
+const { db } = require('./database');
 
 
 const dbGet = promisify(db.get).bind(db);
@@ -20,9 +20,7 @@ class keyStorage
         this.keys = new Map();
         this.activeKeyID = null;
         this.initialized = false;
-        onTableReady(() => {
-            this.loadActiveKey();
-        });
+        this.loadActiveKey();
     }
 
     /* **********************************
